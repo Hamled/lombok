@@ -104,6 +104,7 @@ import org.eclipse.jdt.internal.compiler.lookup.ReferenceBinding;
 import org.eclipse.jdt.internal.compiler.lookup.TypeBinding;
 import org.eclipse.jdt.internal.compiler.lookup.TypeConstants;
 import org.eclipse.jdt.internal.compiler.lookup.TypeIds;
+import org.eclipse.jdt.internal.compiler.lookup.TypeVariableBinding;
 import org.eclipse.jdt.internal.compiler.lookup.WildcardBinding;
 
 import lombok.AccessLevel;
@@ -1174,16 +1175,23 @@ public class EclipseHandlerUtil {
 		
 		if (binding.isUnboundWildcard()) {
 			if (!allowCompound) {
-				TypeReference result = new QualifiedTypeReference(TypeConstants.JAVA_LANG_OBJECT, poss(pos, 3));
+				TypeReference result;
+				TypeVariableBinding typeVar = ((WildcardBinding) binding).typeVariable();
+				if (typeVar != null && typeVar.firstBound != null) {
+					result = makeType(typeVar.firstBound, pos, allowCompound);
+				} else {
+					result = new QualifiedTypeReference(TypeConstants.JAVA_LANG_OBJECT, poss(pos, 3));
+				}
+
 				setGeneratedBy(result, pos);
 				return result;
-			} else {
-				Wildcard out = new Wildcard(Wildcard.UNBOUND);
-				setGeneratedBy(out, pos);
-				out.sourceStart = pos.sourceStart;
-				out.sourceEnd = pos.sourceEnd;
-				return out;
 			}
+
+			Wildcard out = new Wildcard(Wildcard.UNBOUND);
+			setGeneratedBy(out, pos);
+			out.sourceStart = pos.sourceStart;
+			out.sourceEnd = pos.sourceEnd;
+			return out;
 		}
 		
 		if (binding.isWildcard()) {
@@ -1204,17 +1212,26 @@ public class EclipseHandlerUtil {
 					out.sourceEnd = pos.sourceEnd;
 					return out;
 				}
-			} else if (allowCompound && wildcard.boundKind == Wildcard.SUPER) {
+			} else { // wildcard.boundkind == Wildcard.SUPER
+				if (!allowCompound) {
+					TypeReference result;
+					TypeVariableBinding typeVar = ((WildcardBinding) binding).typeVariable();
+					if (typeVar != null && typeVar.firstBound != null) {
+						result = makeType(typeVar.firstBound, pos, allowCompound);
+					} else {
+						result = new QualifiedTypeReference(TypeConstants.JAVA_LANG_OBJECT, poss(pos, 3));
+					}
+
+					setGeneratedBy(result, pos);
+					return result;
+				}
+
 				Wildcard out = new Wildcard(Wildcard.SUPER);
 				setGeneratedBy(out, pos);
 				out.bound = makeType(wildcard.bound, pos, false);
 				out.sourceStart = pos.sourceStart;
 				out.sourceEnd = pos.sourceEnd;
 				return out;
-			} else {
-				TypeReference result = new QualifiedTypeReference(TypeConstants.JAVA_LANG_OBJECT, poss(pos, 3));
-				setGeneratedBy(result, pos);
-				return result;
 			}
 		}
 		
